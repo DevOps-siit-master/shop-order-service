@@ -22,7 +22,7 @@ jobs:
           head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
       - name: Trivy Config Scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: config
           exit-code: '1'

@@ -16,7 +16,7 @@ export class Order {
     status!: OrderStatus;
 
   @Column('decimal', { precision: 18, scale: 6 })
-    total!: number;
+    total!: string;
 
   @Column({ nullable: true })
     txHash!: string;

@@ -1,0 +1,49 @@
+{
+  "title": "Shop Web Traffic",
+  "uid": "shop-web-traffic",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Total requests (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [ { "expr": "sum(increase(http_requests_total[24h]))", "refId": "A" } ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Successful 2xx/3xx (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "targets": [ { "expr": "sum(increase(http_requests_total{status=~\"2..|3..\"}[24h]))", "refId": "A" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Failed 4xx/5xx (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "targets": [ { "expr": "sum(increase(http_requests_total{status=~\"4..|5..\"}[24h]))", "refId": "A" } ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Total traffic (GB)",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "decgbytes", "decimals": 4 }, "overrides": [] },
+      "targets": [ { "expr": "sum(http_response_size_bytes_total) / 1024 / 1024 / 1024", "refId": "A" } ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Request rate by status",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [ { "expr": "sum by (status) (rate(http_requests_total[1m]))", "legendFormat": "{{status}}", "refId": "A" } ]
+    },
+    {
+      "id": 6, "type": "table", "title": "404s by endpoint (24h)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [ { "expr": "sum by (route) (increase(http_requests_total{status=\"404\"}[24h]))", "legendFormat": "{{route}}", "refId": "A", "format": "table", "instant": true } ]
+    }
+  ]
+}

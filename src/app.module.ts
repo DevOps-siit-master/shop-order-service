@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersModule } from './orders/orders.module';
+import { HealthModule } from './health/health.module';
 import { MetricsController } from './metrics/metrics.controller';
 import { MetricsMiddleware } from './metrics/metrics.middleware';
 
@@ -21,6 +22,7 @@ import { MetricsMiddleware } from './metrics/metrics.middleware';
       synchronize: true,
     }),
     OrdersModule,
+    HealthModule,
   ],
   controllers: [AppController, MetricsController],
   providers: [AppService],

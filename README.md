@@ -1,98 +1,139 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Shop Order Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Order microservice for a **Shop** site deployed by [ShopHub](https://github.com/DevOps-siit-master).
+It owns the order lifecycle: the storefront creates an order from the cart, the payment service marks
+it paid once the on-chain transfer is verified, and the admin page lists them.
+Built with NestJS in its own repository.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tech stack
 
-## Description
+- NestJS 11 + TypeScript
+- PostgreSQL + TypeORM (provisioned per shop by CloudNativePG, through the shop-operator)
+- `prom-client` for metrics, OpenTelemetry for tracing, Terminus for health checks
+- Jest (unit) + Testcontainers (integration)
+- Docker
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Local development
 
-## Project setup
+Requirements: Node.js 22+, Docker.
 
 ```bash
-$ npm install
+# 1. Install dependencies
+npm ci
+
+# 2. Create your local env file
+cp .env.example .env
+
+# 3. Start PostgreSQL
+docker compose up -d postgres
+
+# 4. Run the service in watch mode
+npm run start:dev
 ```
 
-## Compile and run the project
+- API: http://localhost:3000
+- Health: http://localhost:3000/health
+- Metrics: http://localhost:3000/metrics
+
+## Scripts
+
+| Script | Description |
+| --- | --- |
+| `npm run start:dev` | Run in watch mode |
+| `npm run build` | Compile to `dist/` |
+| `npm run lint` | ESLint check |
+| `npm test` | Unit tests |
+| `npm run test:e2e` | Integration tests (Testcontainers PostgreSQL) |
+
+## API
+
+| Method & path | Body | Result |
+| --- | --- | --- |
+| `POST /orders` | `{ items: [{ productId, name, price, quantity }] }` | `201` + the created order. The total is computed server-side, never trusted from the client |
+| `GET /orders` | — | `200` + every order, newest first (admin overview, spec 2.2) |
+| `GET /orders/:id` | — | `200` + one order (`404` if unknown) |
+| `PATCH /orders/:id/status` | `{ status, txHash? }` | `200` + the updated order. Called by shop-payment-service after it verifies the transfer |
+| `GET /health` | — | `200` + a database ping result |
+| `GET /metrics` | — | `200` + Prometheus exposition format |
+
+### Order lifecycle
+
+```
+PENDING ──(payment verified on chain)──> PAID
+   └──────────────────────────────────> CANCELED
+```
+
+An order is created as `PENDING` with the total the server computed. `shop-payment-service` checks the
+buyer's transaction on chain and, only if the transfer matches the order total and the shop's wallet,
+patches the status to `PAID` together with the transaction hash.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_HOST` | `localhost` | PostgreSQL host. In the cluster these five come from the CloudNativePG secret, injected by the shop-operator |
+| `DATABASE_PORT` | `5432` | PostgreSQL port |
+| `DATABASE_USER` | `orders` | Database user |
+| `DATABASE_PASSWORD` | `orders` | Database password |
+| `DATABASE_NAME` | `orders` | Database name |
+| `PORT` | `3000` | HTTP port |
+| `CORS_ORIGIN` | `*` | Allowed origin for storefront requests |
+| `OTEL_SERVICE_NAME` | `shop-order-service` | Service name reported in traces |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | OTLP collector endpoint |
+
+`docker-compose.yml` feeds the PostgreSQL container from the same `DATABASE_*` values, so credentials
+are defined once.
+
+## Observability
+
+`/metrics` exposes, alongside the Node.js defaults:
+
+| Metric | Meaning |
+| --- | --- |
+| `http_requests_total` | Requests by method, route and status - covers the 24h totals, the 2xx/3xx successes and the 4xx/5xx failures |
+| `http_request_duration_seconds` | Request latency histogram |
+| `http_response_size_bytes_total` | Bytes served, for the total traffic volume |
+| `unique_visitors_total` | Distinct visitors (client IP + browser) per 24h window |
+
+Traces are exported over OTLP; every request the storefront makes flows through this service and on to
+the payment service in a single trace.
+
+A local Prometheus + Grafana stack with the "web traffic" dashboard lives in `observability/`:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose -f observability/docker-compose.yml up -d
 ```
 
-## Run tests
+## Testing
 
-```bash
-# unit tests
-$ npm run test
+- **Unit** - `npm test`
+- **Integration** - `npm run test:e2e` starts a real PostgreSQL container with Testcontainers and
+  exercises the API through HTTP: creating an order computes the total server-side, listing returns it,
+  and an empty cart is rejected. Both run on every pull request (spec 5.2).
 
-# e2e tests
-$ npm run test:e2e
+## CI/CD
 
-# test coverage
-$ npm run test:cov
+- **Pull requests** - conventional PR title check, TruffleHog secret scan, Trivy config scan, build,
+  unit and integration tests, container image build and a Dockle image scan. A red pipeline blocks the merge.
+- **`main`** - the release workflow derives the next version from the conventional commits
+  ([SemVer](https://semver.org/)) and publishes the image to Docker Hub.
+
+## Contributing (Trunk Based Development)
+
+- `main` is the single trunk; work happens on short-lived branches (`feat/...`, `fix/...`, `chore/...`).
+- Every change goes through a Pull Request; direct pushes to `main` are blocked.
+- Each PR must pass CI and be approved by at least one teammate.
+- Squash merge only, so `main` keeps a linear history.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+## Project structure
+
+```
+src/
+├── orders/     # order domain: controller, service, entities, DTOs
+├── health/     # database-backed health check
+├── metrics/    # Prometheus registry, HTTP middleware, visitor tracking
+└── tracing.ts  # OpenTelemetry SDK, imported first in main.ts
 ```
 
-## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

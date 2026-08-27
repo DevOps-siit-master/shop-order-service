@@ -50,11 +50,11 @@ npm run start:dev
 | Method & path | Body | Result |
 | --- | --- | --- |
 | `POST /orders` | `{ items: [{ productId, name, price, quantity }] }` | `201` + the created order. The total is computed server-side, never trusted from the client |
-| `GET /orders` | — | `200` + every order, newest first (admin overview, spec 2.2) |
-| `GET /orders/:id` | — | `200` + one order (`404` if unknown) |
+| `GET /orders` | - | `200` + every order, newest first (admin overview, spec 2.2) |
+| `GET /orders/:id` | - | `200` + one order (`404` if unknown) |
 | `PATCH /orders/:id/status` | `{ status, txHash? }` | `200` + the updated order. Called by shop-payment-service after it verifies the transfer |
-| `GET /health` | — | `200` + a database ping result |
-| `GET /metrics` | — | `200` + Prometheus exposition format |
+| `GET /health` | - | `200` + a database ping result |
+| `GET /metrics` | - | `200` + Prometheus exposition format |
 
 ### Order lifecycle
 

@@ -1,12 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { OrdersModule } from '../src/orders/orders.module';
+import { PersistenceModule } from '../src/orders/persistence/persistence.module';
 
 describe('Orders (integration)', () => {
   let app: INestApplication;
@@ -15,37 +15,42 @@ describe('Orders (integration)', () => {
   beforeAll(async () => {
     container = await new PostgreSqlContainer('postgres:16-alpine').start();
 
+    process.env.DATABASE_KIND = 'postgres';
+    process.env.DATABASE_HOST = container.getHost();
+    process.env.DATABASE_PORT = String(container.getPort());
+    process.env.DATABASE_USER = container.getUsername();
+    process.env.DATABASE_PASSWORD = container.getPassword();
+    process.env.DATABASE_NAME = container.getDatabase();
+
     const moduleRef = await Test.createTestingModule({
-      imports: [
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          host: container.getHost(),
-          port: container.getPort(),
-          username: container.getUsername(),
-          password: container.getPassword(),
-          database: container.getDatabase(),
-          autoLoadEntities: true,
-          synchronize: true,
-        }),
-        OrdersModule,
-      ],
+      imports: [PersistenceModule.register(), OrdersModule],
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   }, 60000);
 
   afterAll(async () => {
     await app?.close();
     await container?.stop();
+    delete process.env.DATABASE_KIND;
+    delete process.env.DATABASE_HOST;
+    delete process.env.DATABASE_PORT;
+    delete process.env.DATABASE_USER;
+    delete process.env.DATABASE_PASSWORD;
+    delete process.env.DATABASE_NAME;
   });
 
   it('creates an order and computes total on the server', async () => {
     const res = await request(app.getHttpServer())
       .post('/orders')
       .send({
-        items: [{ productId: 'p1', name: 'T-shirt', price: '12.50', quantity: 2 }],
+        items: [
+          { productId: 'p1', name: 'T-shirt', price: '12.50', quantity: 2 },
+        ],
       })
       .expect(201);
 

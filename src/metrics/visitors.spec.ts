@@ -30,7 +30,9 @@ describe('visitors', () => {
     const start = Date.now();
 
     expect(isNewVisitor(fingerprint, start)).toBe(true);
-    expect(isNewVisitor(fingerprint, start + VISITOR_WINDOW_MS - 1)).toBe(false);
+    expect(isNewVisitor(fingerprint, start + VISITOR_WINDOW_MS - 1)).toBe(
+      false,
+    );
     expect(isNewVisitor(fingerprint, start + VISITOR_WINDOW_MS)).toBe(true);
   });
 

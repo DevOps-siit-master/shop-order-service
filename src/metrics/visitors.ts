@@ -7,10 +7,15 @@ const MAX_TRACKED = 50_000;
 const seen = new Map<string, number>();
 
 export function visitorFingerprint(ip: string, userAgent: string): string {
-  return createHash('sha256').update(ip + '|' + userAgent).digest('hex');
+  return createHash('sha256')
+    .update(ip + '|' + userAgent)
+    .digest('hex');
 }
 
-export function isNewVisitor(fingerprint: string, now: number = Date.now()): boolean {
+export function isNewVisitor(
+  fingerprint: string,
+  now: number = Date.now(),
+): boolean {
   const firstSeen = seen.get(fingerprint);
   if (firstSeen !== undefined && now - firstSeen < WINDOW_MS) {
     return false;

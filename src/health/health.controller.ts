@@ -1,17 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
-import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
+import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { PersistenceHealthIndicator } from './persistence.health';
 
 @Controller('health')
 export class HealthController {
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly db: PersistenceHealthIndicator,
+  ) {}
 
-    constructor(
-        private readonly health: HealthCheckService,
-        private readonly db: TypeOrmHealthIndicator,
-    ) {}
-
-    @Get()
-    @HealthCheck()
-    check() {
-        return this.health.check([() => this.db.pingCheck('database')]);
-    }
+  @Get()
+  @HealthCheck()
+  check() {
+    return this.health.check([() => this.db.isHealthy('database')]);
+  }
 }

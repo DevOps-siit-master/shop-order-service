@@ -49,7 +49,7 @@ export class OrdersService {
     status: OrderStatus,
     txHash?: string,
   ): Promise<Order> {
-    const order = await this.updateStatus(id, status, txHash);
+    const order = await this.orders.updateStatus(id, status, txHash);
     if (!order) throw new NotFoundException(`Order ${id} not found`);
     return order;
   }

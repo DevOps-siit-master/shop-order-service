@@ -71,4 +71,21 @@ describe('Orders (integration)', () => {
       .send({ items: [] })
       .expect(400);
   });
+
+  it('marks an order as paid and records the transaction hash', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ items: [{ productId: 'p1', name: 'T-shirt', price: '12.50', quantity: 1 }] })
+      .expect(201);
+
+
+    const res = await request(app.getHttpServer())
+      .patch(`/orders/${created.body.id}/status`)
+      .send({ status: 'PAID', txHash: '0xaaa' })
+      .expect(200);
+
+
+    expect(res.body.status).toBe('PAID');
+    expect(res.body.txHash).toBe('0xaaa');
+  });
 });

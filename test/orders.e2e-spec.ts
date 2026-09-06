@@ -88,4 +88,24 @@ describe('Orders (integration)', () => {
     expect(res.body.status).toBe('PAID');
     expect(res.body.txHash).toBe('0xaaa');
   });
+
+  it('rejects a transaction hash that already paid another order', async () => {
+    const create = () =>
+      request(app.getHttpServer())
+        .post('/orders')
+        .send({ items: [{ productId: 'p1', name: 'T-shirt', price: '12.50', quantity: 1 }] })
+        .expect(201);
+
+    const first = await create();
+    await request(app.getHttpServer())
+      .patch(`/orders/${first.body.id}/status`)
+      .send({ status: 'PAID', txHash: '0xdup' })
+      .expect(200);
+
+    const second = await create();
+    await request(app.getHttpServer())
+      .patch(`/orders/${second.body.id}/status`)
+      .send({ status: 'PAID', txHash: '0xdup' })
+      .expect(409);
+  });
 });

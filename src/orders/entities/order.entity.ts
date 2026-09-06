@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, Index } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 
 export enum OrderStatus {
@@ -7,6 +7,7 @@ export enum OrderStatus {
   CANCELED = 'CANCELED',
 }
 
+@Index('uq_order_tx_hash', ['txHash'], { unique: true, where: '"txHash" IS NOT NULL' })
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')

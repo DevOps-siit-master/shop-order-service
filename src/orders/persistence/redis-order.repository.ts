@@ -6,6 +6,7 @@ import { OrderRepository } from '../order-repository.adapter';
 
 const key = (id: string) => `order:${id}`;
 const INDEX = 'orders:index'; // zset: member=id, score=createdAt(ms)
+const txKey = (txHash: string) => `order:tx:${txHash}`;   
 
 @Injectable()
 export class RedisOrderRepository implements OrderRepository {
@@ -57,7 +58,14 @@ export class RedisOrderRepository implements OrderRepository {
     order.status = status;
     if (txHash) order.txHash = txHash;
     await this.redis.set(key(id), JSON.stringify(order));
+    if (txHash) await this.redis.set(txKey(txHash), id);
     return this.revive(order);
+  }
+
+  async findByTxHash(txHash: string): Promise<Order | null> {
+    const id = await this.redis.get(txKey(txHash));
+    if (!id) return null;
+    return this.findOne(id);
   }
 
   async ping(): Promise<void> {

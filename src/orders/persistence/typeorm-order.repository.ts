@@ -37,4 +37,8 @@ export class TypeOrmOrderRepository implements OrderRepository {
   async ping(): Promise<void> {
     await this.orders.query('SELECT 1');
   }
+
+  findByTxHash(txHash: string): Promise<Order | null> {
+    return this.orders.findOne({ where: { txHash } });
+  }
 }

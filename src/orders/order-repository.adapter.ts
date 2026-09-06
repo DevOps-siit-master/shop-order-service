@@ -12,4 +12,5 @@ export interface OrderRepository {
     txHash?: string,
   ): Promise<Order | null>;
   ping(): Promise<void>;
+  findByTxHash(txHash: string): Promise<Order | null>;
 }

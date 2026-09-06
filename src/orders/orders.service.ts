@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -49,6 +49,14 @@ export class OrdersService {
     status: OrderStatus,
     txHash?: string,
   ): Promise<Order> {
+    if (txHash) {
+      const existing = await this.orders.findByTxHash(txHash);
+      if (existing && existing.id !== id) {
+        throw new ConflictException(
+          `Transaction hash ${txHash} is already associated with order ${existing.id}`,
+        );
+      }
+    } 
     const order = await this.orders.updateStatus(id, status, txHash);
     if (!order) throw new NotFoundException(`Order ${id} not found`);
     return order;
